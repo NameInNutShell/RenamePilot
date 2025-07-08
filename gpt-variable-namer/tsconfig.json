@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    /* 기본 옵션 */
+    "target": "ES2020", // 최신 JavaScript 기능 사용
+    "module": "CommonJS", // ✅ 가장 중요한 설정! 'import'를 Node.js가 이해하는 'require'로 바꿔줍니다.
+    "strict": true, // 엄격한 타입 체크 활성화
+    "esModuleInterop": true, // CommonJS 모듈을 ES 모듈처럼 가져올 수 있게 함
+    "skipLibCheck": true, // 설치된 라이브러리(node_modules)의 타입 검사 건너뛰기
+    "forceConsistentCasingInFileNames": true,
+    "moduleResolution": "node" // 모듈 해석 방식을 Node.js 방식으로 설정
+  }
+}
