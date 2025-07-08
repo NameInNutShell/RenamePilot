@@ -19,6 +19,14 @@
       }
     ]
   },
+  "menus": {
+    "editor/context": [
+      {
+        "command": "rename-pilot.recommend",
+        "when": "editorHasSelection"
+      }
+    ]
+  },
   "scripts": {
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
