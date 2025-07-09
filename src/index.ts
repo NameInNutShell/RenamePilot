@@ -35,7 +35,7 @@ export class ASTVariableAnalyzer {
     // ts-morph 프로젝트 초기화
     this.project = new Project({
       tsConfigFilePath: tsConfigPath || './tsconfig.json',
-      skipAddingFilesFromTsConfig: false,
+      skipAddingFilesFromTsConfig: true,
       skipFileDependencyResolution: false,
       skipLoadingLibFiles: false,
     });
@@ -316,35 +316,19 @@ export async function initializeASTAnalyzer() {
     const analyzer = new ASTVariableAnalyzer();
 
     // 예시: TypeScript 파일들을 프로젝트에 추가
-    analyzer.addSourceFiles('src/**/*.ts');
+    analyzer.addSourceFiles('src/examplefiles/**/*.ts');
 
     // 또는 특정 파일 추가
     // analyzer.addSourceFile("./example.ts");
 
+    /*
     // 또는 코드 문자열로 테스트 파일 생성
     const testCode = `
-      class UserService {
-        private db: Database;
-        
-        constructor(database: Database) {
-          this.db = database;
-        }
-        
-        async getUserById(id: number): Promise<User> {
-          const result = await this.db.query('SELECT * FROM users WHERE id = ?', [id]);
-          const userData = result[0];
-          return new User(userData);
-        }
-        
-        processUserData(data: any) {
-          const temp = data.map(item => item.name);
-          return temp;
-        }
-      }
+      
     `;
 
-    const testFile = analyzer.createSourceFile('test.ts', testCode);
-
+    //const testFile = analyzer.createSourceFile('test.ts', testCode);
+    */
     // AST 구조 출력 (학습 목적)
     analyzer.printASTStructure('test.ts');
 
