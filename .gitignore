@@ -1,0 +1,42 @@
+# Dependencies
+# ---------------------------
+node_modules/
+package-lock.json
+
+# Compiled TypeScript/JavaScript
+# ---------------------------
+out/
+dist/
+*.js
+*.js.map
+*.tsbuildinfo
+
+# Log files
+# ---------------------------
+npm-debug.log*
+yarn-error.log*
+*.log
+
+# Environment variables
+# ---------------------------
+.env
+.env.*
+!.env.example
+
+# OS-specific files
+# ---------------------------
+.DS_Store
+Thumbs.db
+
+# VS Code editor
+# ---------------------------
+.vscode/
+!/.vscode/settings.json
+!/.vscode/launch.json
+!/.vscode/extensions.json
+!/.vscode/tasks.json
+
+# Test & Coverage
+# ---------------------------
+coverage/
+.nyc_output/
