@@ -1,8 +1,32 @@
 {
-  "name": "Proj1",
-  "version": "1.0.0",
+  "name": "rename-pilot",
+  "displayName": "RenamePilot",
   "description": "AST를 이용한 변수 이름 분석 및 개선 도구",
+  "author": "heewon&cinnapie",
+  "version": "1.0.0",
   "main": "dist/index.js",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "activationEvents": [
+    "onCommand:rename-pilot.recommend"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "rename-pilot.recommend",
+        "title": "RenamePilot: 변수명 추천"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "rename-pilot.recommend",
+          "when": "editorHasSelection"
+        }
+      ]
+    }
+  },
   "scripts": {
     "build": "tsc",
     "dev": "ts-node src/index.ts",
@@ -17,14 +41,14 @@
     "analysis",
     "ts-morph"
   ],
-  "author": "Your Name",
   "license": "MIT",
   "devDependencies": {
     "@types/jest": "^29.0.0",
     "@types/node": "^20.0.0",
     "jest": "^29.0.0",
     "ts-node": "^10.9.2",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "vscode": "^1.1.37"
   },
   "dependencies": {
     "ts-morph": "^21.0.0"
