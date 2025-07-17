@@ -1,0 +1,1 @@
+- `npm run debug`명령어를 사용해 analyzer.ts를 디버깅할 때 사용되는 test sample파일이 모여있는 폴더입니다.
