@@ -18,6 +18,10 @@
       {
         "command": "rename-pilot.recommend",
         "title": "RenamePilot : 변수명 분석기"
+      },
+      {
+        "command": "rename-pilot.showUI",
+        "title": "RenamePilot: 분석기 UI 열기"
       }
     ],
     "menus": {

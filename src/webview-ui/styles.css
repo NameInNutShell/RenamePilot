@@ -1,0 +1,18 @@
+body {
+  padding: 20px;
+  background-color: var(--vscode-editor-background);
+  color: var(--vscode-editor-foreground);
+  font-family: var(--vscode-font-family);
+}
+
+button {
+  border: 1px solid var(--vscode-button-border);
+  background-color: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  padding: 5px 15px;
+  cursor: pointer;
+}
+
+button:hover {
+  background-color: var(--vscode-button-hoverBackground);
+}
