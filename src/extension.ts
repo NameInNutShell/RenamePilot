@@ -1,26 +1,49 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
-import * as path from 'path';
+
 import { ASTVariableAnalyzer } from './analyzer';
 import { handleVariableRenaming } from './lib/ui';
+import { SidebarProvider } from './SidebarProvider';
 
 export function activate(context: vscode.ExtensionContext) {
   console.log('Congratulations, your extension "rename-pilot" is now active!');
 
-  // 마지막으로 활성화되었던 에디터를 저장할 변수
-  let lastActiveEditor: vscode.TextEditor | undefined =
-    vscode.window.activeTextEditor;
+  // 1. SidebarProvider 등록
+  const sidebarProvider = new SidebarProvider(context.extensionUri);
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider(
+      SidebarProvider.viewType,
+      sidebarProvider
+    )
+  );
 
-  // 활성화된 에디터가 바뀔 때마다 변수를 업데이트
+  // 2. 분석 후 Webview를 업데이트하는 로직
+  const analyzeAndUpdate = (editor: vscode.TextEditor | undefined) => {
+    // console.log('2번 ㄱㄱㄱ');
+    if (!editor) {
+      sidebarProvider.updateVariables([]); // 파일이 없으면 빈 배열 전달
+      console.log('파일 없음');
+      return;
+    }
+    const analyzer = new ASTVariableAnalyzer();
+    console.log(editor.document.fileName);
+    analyzer.createSourceFile(
+      editor.document.fileName,
+      editor.document.getText()
+    );
+    const variables = analyzer.collectVariableInfo();
+    sidebarProvider.updateVariables(variables); // Provider를 통해 Webview 업데이트
+  };
+
+  // 3. 확장 프로그램이 켜졌을 때와 에디터가 바뀔 때 분석 실행
+  analyzeAndUpdate(vscode.window.activeTextEditor);
   context.subscriptions.push(
     vscode.window.onDidChangeActiveTextEditor((editor) => {
-      lastActiveEditor = editor;
-      if (editor) {
-        console.log(`Active editor changed to: ${editor.document.fileName}`);
-      }
+      analyzeAndUpdate(editor);
     })
   );
 
+  // 4. 기존의 우클릭 메뉴 기능 (선택사항, 유지 가능)
   const recommendCommand = vscode.commands.registerCommand(
     'rename-pilot.recommend',
     async () => {
@@ -76,92 +99,9 @@ export function activate(context: vscode.ExtensionContext) {
     }
   );
 
-  // 2. Webview UI를 여는 새로운 명령어
-  const showUICommand = vscode.commands.registerCommand(
-    'rename-pilot.showUI',
-    () => {
-      const panel = vscode.window.createWebviewPanel(
-        'renamePilotUI',
-        'RenamePilot 분석기',
-        vscode.ViewColumn.One,
-        {
-          enableScripts: true,
-          localResourceRoots: [
-            vscode.Uri.joinPath(context.extensionUri, 'src', 'webview-ui'),
-          ],
-        }
-      );
-
-      // Webview에 HTML 콘텐츠 설정
-      panel.webview.html = getWebviewContent(context, panel.webview);
-
-      // Webview로부터 메시지를 받을 리스너 설정
-      // ✨ 함수로 분리하여 재사용성 높이기
-      const analyzeAndUpdateWebview = (
-        editor: vscode.TextEditor | undefined
-      ) => {
-        if (!editor) {
-          vscode.window.showErrorMessage(
-            '분석할 파일이 없습니다. 코드 파일을 먼저 클릭해주세요.'
-          );
-          return;
-        }
-        const document = editor.document;
-        const analyzer = new ASTVariableAnalyzer();
-        analyzer.createSourceFile(document.fileName, document.getText());
-        const variables = analyzer.collectVariableInfo();
-        panel.webview.postMessage({
-          command: 'updateVariables',
-          variables: variables,
-        });
-      };
-
-      // ✨ Webview가 로드되면, 마지막으로 활성화됐던 에디터를 기준으로 즉시 분석 실행
-      analyzeAndUpdateWebview(lastActiveEditor);
-
-      // Webview로부터 메시지를 받을 리스너 설정
-      panel.webview.onDidReceiveMessage(
-        (message) => {
-          if (message.command === 'analyze') {
-            // ✨ 버튼 클릭 시에도 마지막 활성 에디터 기준으로 새로고침
-            analyzeAndUpdateWebview(lastActiveEditor);
-          }
-        },
-        undefined,
-        context.subscriptions
-      );
-    }
-  );
-
-  context.subscriptions.push(recommendCommand, showUICommand);
+  context.subscriptions.push(recommendCommand);
 
   // context.subscriptions.push(disposable);
-}
-
-// ✨ Webview에 들어갈 HTML을 생성하고 리소스 경로를 처리하는 헬퍼 함수
-function getWebviewContent(
-  context: vscode.ExtensionContext,
-  webview: vscode.Webview
-): string {
-  const webviewUiPath = vscode.Uri.joinPath(
-    context.extensionUri,
-    'src',
-    'webview-ui'
-  );
-
-  const htmlPath = vscode.Uri.joinPath(webviewUiPath, 'index.html');
-  const stylesUri = webview.asWebviewUri(
-    vscode.Uri.joinPath(webviewUiPath, 'styles.css')
-  );
-  const scriptUri = webview.asWebviewUri(
-    vscode.Uri.joinPath(webviewUiPath, 'main.js')
-  );
-
-  let html = fs.readFileSync(htmlPath.fsPath, 'utf8');
-  html = html.replace('${stylesUri}', stylesUri.toString());
-  html = html.replace('${scriptUri}', scriptUri.toString());
-
-  return html;
 }
 
 export function deactivate() {}
