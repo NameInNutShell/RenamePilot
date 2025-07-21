@@ -19,9 +19,8 @@ export function activate(context: vscode.ExtensionContext) {
 
   // 2. 분석 후 Webview를 업데이트하는 로직
   const analyzeAndUpdate = (editor: vscode.TextEditor | undefined) => {
-    // console.log('2번 ㄱㄱㄱ');
     if (!editor) {
-      sidebarProvider.updateVariables([]); // 파일이 없으면 빈 배열 전달
+      sidebarProvider.updateVariables([]);
       console.log('파일 없음');
       return;
     }
@@ -32,7 +31,7 @@ export function activate(context: vscode.ExtensionContext) {
       editor.document.getText()
     );
     const variables = analyzer.collectVariableInfo();
-    sidebarProvider.updateVariables(variables); // Provider를 통해 Webview 업데이트
+    sidebarProvider.updateVariables(variables);
   };
 
   // 3. 확장 프로그램이 켜졌을 때와 에디터가 바뀔 때 분석 실행
@@ -42,8 +41,30 @@ export function activate(context: vscode.ExtensionContext) {
       analyzeAndUpdate(editor);
     })
   );
+  
+  // 4. 텍스트 변경 시에도 분석 실행 (디바운싱 적용)
+  let timeout: NodeJS.Timeout | undefined = undefined;
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeTextDocument((event) => {
+      if (event.document === vscode.window.activeTextEditor?.document) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => {
+          analyzeAndUpdate(vscode.window.activeTextEditor);
+        }, 1000); // 1초 디바운싱
+      }
+    })
+  );
+  
+  // 5. 수동 새로고침 명령
+  const refreshCommand = vscode.commands.registerCommand(
+    'rename-pilot.refreshAnalysis',
+    () => {
+      analyzeAndUpdate(vscode.window.activeTextEditor);
+    }
+  );
+  context.subscriptions.push(refreshCommand);
 
-  // 4. 기존의 우클릭 메뉴 기능 (선택사항, 유지 가능)
+  // 6. 기존의 우클릭 메뉴 기능 (선택사항, 유지 가능)
   const recommendCommand = vscode.commands.registerCommand(
     'rename-pilot.recommend',
     async () => {
@@ -61,19 +82,14 @@ export function activate(context: vscode.ExtensionContext) {
 
       try {
         console.log('Creating analyzer...');
-        // 2. 분석기 인스턴스 생성
         const analyzer = new ASTVariableAnalyzer();
         console.log('Analyzer created successfully');
 
         console.log('Creating source file...');
-
-        // 3. 파일 내용으로 소스 파일을 직접 생성해 분석
         analyzer.createSourceFile(fileName, code);
         console.log('Source file created successfully');
 
         console.log('Collecting variable info...');
-
-        // 4. 변수 정보를 수집하고 사용자에게 보여준다.
         const variables = analyzer.collectVariableInfo();
         console.log('Variables collected:', variables.length);
 
@@ -100,8 +116,6 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   context.subscriptions.push(recommendCommand);
-
-  // context.subscriptions.push(disposable);
 }
 
 export function deactivate() {}

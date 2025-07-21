@@ -1,10 +1,12 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
+import { generateVariableNameSuggestions } from './lib/suggestions';
+import { performVariableRename } from './lib/renamer';
 
 export class SidebarProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = 'renamepilot-view';
   private _view?: vscode.WebviewView;
-  private _lastVariables: any[] = []; // ✨ 1. 변수를 캐싱할 변수 추가
+  private _lastVariables: any[] = [];
 
   constructor(private readonly _extensionUri: vscode.Uri) {}
 
@@ -24,15 +26,40 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
 
     webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
 
-    // ✨ 3. 뷰가 생성(resolve)되면, 캐시된 마지막 변수 정보를 즉시 전송
+    // 뷰가 생성되면 캐시된 변수 정보 전송
     this.updateVariables(this._lastVariables);
 
     // Webview로부터 메시지 수신
-    webviewView.webview.onDidReceiveMessage((data) => {
-      // 필요하다면 이곳에서 extension.ts와 통신
+    webviewView.webview.onDidReceiveMessage(async (data) => {
       switch (data.command) {
-        case 'button-clicked':
-          vscode.window.showInformationMessage('Webview button was clicked!');
+        case 'getSuggestions':
+          // 변수에 대한 이름 추천 생성
+          const variable = data.variable;
+          const suggestions = generateVariableNameSuggestions(variable);
+          
+          // 추천된 이름들을 웹뷰로 전송
+          this._view?.webview.postMessage({
+            command: 'showSuggestions',
+            variableName: variable.name,
+            suggestions: suggestions
+          });
+          break;
+          
+        case 'renameVariable':
+          // 실제 변수명 변경 수행
+          await performVariableRename(data.variable, data.newName);
+          
+          // 변경 완료 메시지 전송
+          this._view?.webview.postMessage({
+            command: 'renameComplete',
+            oldName: data.variable.name,
+            newName: data.newName
+          });
+          break;
+          
+        case 'requestRefresh':
+          // 현재 에디터의 변수 정보 재분석 요청
+          vscode.commands.executeCommand('rename-pilot.refreshAnalysis');
           break;
       }
     });
@@ -40,10 +67,8 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
 
   // Webview로 데이터 전송하는 함수
   public updateVariables(variables: any[]) {
-    // ✨ 2. 항상 최신 변수 정보를 내부 변수에 캐싱
     this._lastVariables = variables;
 
-    // 뷰가 준비되었다면, Webview로 데이터 전송
     if (this._view) {
       this._view.webview.postMessage({
         command: 'updateVariables',

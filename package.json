@@ -40,12 +40,18 @@
       {
         "command": "rename-pilot.showUI",
         "title": "RenamePilot: 분석기 UI 열기"
+      },
+      {
+        "command": "rename-pilot.refreshAnalysis",
+        "title": "RenamePilot: 분석 새로고침"
       }
     ],
     "menus": {
       "editor/context": [
         {
-          "command": "rename-pilot.recommend"
+          "command": "rename-pilot.recommend",
+          "when": "resourceExtname == .ts || resourceExtname == .js || resourceExtname == .tsx || resourceExtname == .jsx",
+          "group": "1_modification"
         }
       ]
     }
