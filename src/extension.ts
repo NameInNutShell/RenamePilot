@@ -1,28 +1,68 @@
-// The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
+import { ASTVariableAnalyzer } from './analyzer';
 
-// This method is called when your extension is activated
-// Your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
-  // Use the console to output diagnostic information (console.log) and errors (console.error)
-  // This line of code will only be executed once when your extension is activated
   console.log('Congratulations, your extension "rename-pilot" is now active!');
 
-  // The command has been defined in the package.json file
-  // Now provide the implementation of the command with registerCommand
-  // The commandId parameter must match the command field in package.json
   const disposable = vscode.commands.registerCommand(
     'rename-pilot.recommend',
     () => {
-      // The code you place here will be executed every time your command is executed
-      // Display a message box to the user
-      vscode.window.showInformationMessage('Hello World from rename-pilot!');
+      console.log('=== RenamePilot Command Started ===');
+      const editor = vscode.window.activeTextEditor;
+      if (!editor) {
+        vscode.window.showErrorMessage('분석할 파일이 열려있지 않습니다.');
+        return;
+      }
+
+      const document = editor.document;
+      const code = document.getText();
+      const fileName = document.fileName;
+      console.log('Processing file:', fileName);
+
+      try {
+        console.log('Creating analyzer...');
+        // 2. 분석기 인스턴스 생성
+        const analyzer = new ASTVariableAnalyzer();
+        console.log('Analyzer created successfully');
+
+        console.log('Creating source file...');
+        // // 3. 파일 내용으로 소스 파일을 직접 생성해 분석
+        analyzer.createSourceFile(fileName, code);
+        console.log('Source file created successfully');
+
+        console.log('Collecting variable info...');
+        // // 4. 변수 정보를 수집하고 사용자에게 보여준다.
+        const variables = analyzer.collectVariableInfo();
+        console.log('Variables collected:', variables.length);
+
+        if (variables.length === 0) {
+          vscode.window.showInformationMessage('분석된 변수가 없습니다.');
+          return;
+        }
+
+        const variableNames = variables.map(
+          (v) => `${v.name} (line ${v.location.line})`
+        );
+
+        vscode.window.showQuickPick(variableNames, {
+          placeHolder: '분석된 변수 목록',
+        });
+      } catch (error: unknown) {
+        console.error('Error during analysis:', error);
+        vscode.window.showErrorMessage(
+          `변수 분석 중 오류가 발생했습니다: ${
+            error instanceof Error ? error.message : String(error)
+          }`
+        );
+      }
+
+      vscode.window.showInformationMessage(
+        'RenamePilot 추천 기능이 실행되었습니다!'
+      );
     }
   );
 
   context.subscriptions.push(disposable);
 }
 
-// This method is called when your extension is deactivated
 export function deactivate() {}
