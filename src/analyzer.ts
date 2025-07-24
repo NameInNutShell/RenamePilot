@@ -8,18 +8,7 @@ import {
   PropertyDeclaration,
 } from 'ts-morph';
 
-interface VariableInfo {
-  name: string;
-  type: string;
-  kind: 'variable' | 'parameter' | 'property';
-  scope: string;
-  location: {
-    file: string;
-    line: number;
-    column: number;
-  };
-  context: string; // 변수 주변 코드 컨텍스트
-}
+import { VariableInfo } from './types';
 
 /**
  * ts-morph를 이용한 AST 초기 설정 클래스
