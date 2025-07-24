@@ -22,6 +22,7 @@ export class ASTVariableAnalyzer {
       // VS Code 확장 프로그램 환경에서는 최소한의 설정으로 Project 생성
       this.project = new Project({
         useInMemoryFileSystem: true, // 메모리 파일 시스템 사용
+        // 디버그모드 : false, 익스텐션 실행시 : true
         skipAddingFilesFromTsConfig: true,
         skipFileDependencyResolution: true,
         skipLoadingLibFiles: true,
@@ -32,6 +33,15 @@ export class ASTVariableAnalyzer {
       this.project = new Project();
     }
   }
+
+  // // 디버깅용
+  // public static forDebug(tsConfigPath: string): ASTVariableAnalyzer {
+  //   const analyzer = new ASTVariableAnalyzer();
+  //   analyzer.project = new Project({
+  //     tsConfigFilePath: tsConfigPath,
+  //   });
+  //   return analyzer;
+  // }
 
   /**
    * 소스 파일들을 프로젝트에 추가

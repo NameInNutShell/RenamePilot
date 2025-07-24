@@ -1,4 +1,5 @@
 import { ASTVariableAnalyzer } from './src/analyzer';
+import { buildTree } from './src/lib/treeBuilder';
 
 // 이 함수는 'npm run debug' 실행 시 호출됩니다.
 async function debugAnalyzer() {
@@ -14,8 +15,13 @@ async function debugAnalyzer() {
     console.log('변수 정보 수집 중...');
     const variables = analyzer.collectVariableInfo();
 
-    // 3. 수집된 정보를 출력합니다.
-    analyzer.printVariableInfo(variables);
+    // 4. 수집된 정보를 트리 구조로 변환
+    const treeData = buildTree(variables);
+
+    // 5. 최종 트리 구조를 JSON 형태로 출력
+    console.log('\n=== Generated Tree Structure (JSON) ===');
+    console.log(JSON.stringify(treeData, null, 2));
+    // analyzer.printVariableInfo(variables);
 
     console.log('\n--- 디버그 모드 종료 ---');
   } catch (error) {
