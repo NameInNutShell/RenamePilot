@@ -1,12 +1,73 @@
 import * as vscode from 'vscode';
+import * as fs from 'fs';
+
 import { ASTVariableAnalyzer } from './analyzer';
+import { handleVariableRenaming } from './lib/ui';
+import { SidebarProvider } from './SidebarProvider';
 
 export function activate(context: vscode.ExtensionContext) {
   console.log('Congratulations, your extension "rename-pilot" is now active!');
 
-  const disposable = vscode.commands.registerCommand(
-    'rename-pilot.recommend',
+  // 1. SidebarProvider 등록
+  const sidebarProvider = new SidebarProvider(context.extensionUri);
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider(
+      SidebarProvider.viewType,
+      sidebarProvider
+    )
+  );
+
+  // 2. 분석 후 Webview를 업데이트하는 로직
+  const analyzeAndUpdate = (editor: vscode.TextEditor | undefined) => {
+    if (!editor) {
+      sidebarProvider.updateVariables([]);
+      console.log('파일 없음');
+      return;
+    }
+    const analyzer = new ASTVariableAnalyzer();
+    console.log(editor.document.fileName);
+    analyzer.createSourceFile(
+      editor.document.fileName,
+      editor.document.getText()
+    );
+    const variables = analyzer.collectVariableInfo();
+    sidebarProvider.updateVariables(variables);
+  };
+
+  // 3. 확장 프로그램이 켜졌을 때와 에디터가 바뀔 때 분석 실행
+  analyzeAndUpdate(vscode.window.activeTextEditor);
+  context.subscriptions.push(
+    vscode.window.onDidChangeActiveTextEditor((editor) => {
+      analyzeAndUpdate(editor);
+    })
+  );
+  
+  // 4. 텍스트 변경 시에도 분석 실행 (디바운싱 적용)
+  let timeout: NodeJS.Timeout | undefined = undefined;
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeTextDocument((event) => {
+      if (event.document === vscode.window.activeTextEditor?.document) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => {
+          analyzeAndUpdate(vscode.window.activeTextEditor);
+        }, 1000); // 1초 디바운싱
+      }
+    })
+  );
+  
+  // 5. 수동 새로고침 명령
+  const refreshCommand = vscode.commands.registerCommand(
+    'rename-pilot.refreshAnalysis',
     () => {
+      analyzeAndUpdate(vscode.window.activeTextEditor);
+    }
+  );
+  context.subscriptions.push(refreshCommand);
+
+  // 6. 기존의 우클릭 메뉴 기능 (선택사항, 유지 가능)
+  const recommendCommand = vscode.commands.registerCommand(
+    'rename-pilot.recommend',
+    async () => {
       console.log('=== RenamePilot Command Started ===');
       const editor = vscode.window.activeTextEditor;
       if (!editor) {
@@ -21,17 +82,14 @@ export function activate(context: vscode.ExtensionContext) {
 
       try {
         console.log('Creating analyzer...');
-        // 2. 분석기 인스턴스 생성
         const analyzer = new ASTVariableAnalyzer();
         console.log('Analyzer created successfully');
 
         console.log('Creating source file...');
-        // // 3. 파일 내용으로 소스 파일을 직접 생성해 분석
         analyzer.createSourceFile(fileName, code);
         console.log('Source file created successfully');
 
         console.log('Collecting variable info...');
-        // // 4. 변수 정보를 수집하고 사용자에게 보여준다.
         const variables = analyzer.collectVariableInfo();
         console.log('Variables collected:', variables.length);
 
@@ -40,13 +98,8 @@ export function activate(context: vscode.ExtensionContext) {
           return;
         }
 
-        const variableNames = variables.map(
-          (v) => `${v.name} (line ${v.location.line})`
-        );
-
-        vscode.window.showQuickPick(variableNames, {
-          placeHolder: '분석된 변수 목록',
-        });
+        // 변수명 추천 및 선택 처리
+        await handleVariableRenaming(variables);
       } catch (error: unknown) {
         console.error('Error during analysis:', error);
         vscode.window.showErrorMessage(
@@ -62,7 +115,7 @@ export function activate(context: vscode.ExtensionContext) {
     }
   );
 
-  context.subscriptions.push(disposable);
+  context.subscriptions.push(recommendCommand);
 }
 
 export function deactivate() {}

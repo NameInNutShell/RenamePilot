@@ -8,6 +8,7 @@ package-lock.json
 out/
 dist/
 *.js
+!/src/webview-ui/main.js
 *.js.map
 *.tsbuildinfo
 
