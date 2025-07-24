@@ -1,7 +1,8 @@
+// SidebarProvider.ts - 에러 처리가 개선된 완성 버전
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import { generateVariableNameSuggestions } from './lib/suggestions';
-import { performVariableRename } from './lib/renamer';
+import { performVariableRename } from './lib/renamer'; // 개선된 rename 기능 사용
 
 export class SidebarProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = 'renamepilot-view';
@@ -46,15 +47,44 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
           break;
           
         case 'renameVariable':
-          // 실제 변수명 변경 수행
-          await performVariableRename(data.variable, data.newName);
-          
-          // 변경 완료 메시지 전송
-          this._view?.webview.postMessage({
-            command: 'renameComplete',
-            oldName: data.variable.name,
-            newName: data.newName
-          });
+          try {
+            // 개선된 변수명 변경 기능 사용
+            console.log(`Renaming variable "${data.variable.name}" to "${data.newName}"`);
+            const success = await performVariableRename(data.variable, data.newName);
+            
+            if (success) {
+              // 변경 완료 메시지 전송
+              this._view?.webview.postMessage({
+                command: 'renameComplete',
+                oldName: data.variable.name,
+                newName: data.newName,
+                success: true
+              });
+              
+              // 잠시 후 자동으로 새로고침하여 변경된 내용 반영
+              setTimeout(() => {
+                vscode.commands.executeCommand('rename-pilot.refreshAnalysis');
+              }, 500);
+            } else {
+              // 실패 메시지 전송
+              this._view?.webview.postMessage({
+                command: 'renameComplete',
+                oldName: data.variable.name,
+                newName: data.newName,
+                success: false,
+                error: '변수명 변경에 실패했습니다.'
+              });
+            }
+          } catch (error) {
+            console.error('Rename error in SidebarProvider:', error);
+            this._view?.webview.postMessage({
+              command: 'renameComplete',
+              oldName: data.variable.name,
+              newName: data.newName,
+              success: false,
+              error: error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.'
+            });
+          }
           break;
           
         case 'requestRefresh':
