@@ -1,3 +1,5 @@
+import { createVariableList, createSuggestionList } from './templates.js';
+
 (function () {
   const vscode = acquireVsCodeApi();
 
@@ -47,54 +49,99 @@
     }
   });
 
-  // 변수 목록 업데이트
-  function updateVariableList(variables) {
-    currentVariables = variables;
+  // --- Functions ---
 
-    // 통계 업데이트
+  /**
+   * Creates the nested HTML list for the tree view.
+   * This is a "recursive" function.
+   * @param {Array} nodes - An array of tree nodes.
+   * @returns {HTMLUListElement}
+   */
+  function createTreeElement(nodes) {
+    const ul = document.createElement('ul');
+    ul.className = 'variable-tree';
+
+    for (const node of nodes) {
+      const li = document.createElement('li');
+      li.className = 'tree-node';
+
+      const hasChildren = node.children && node.children.length > 0;
+      if (hasChildren) {
+        li.classList.add('has-children');
+      }
+
+      const nodeContent = document.createElement('span');
+      // Replace this with your own icon logic if you wish
+      const icon =
+        node.kind === 'class' ||
+        node.kind === 'function' ||
+        node.kind === 'method'
+          ? '📦'
+          : '🔹';
+      nodeContent.innerHTML = `${icon} ${escapeHtml(node.name)} <small>(${
+        node.kind
+      })</small>`;
+      li.appendChild(nodeContent);
+
+      // Only add click listeners to actual variables
+      if (!hasChildren) {
+        li.dataset.variable = JSON.stringify(node);
+        li.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const variable = JSON.parse(li.dataset.variable);
+          showSuggestions(variable);
+        });
+      }
+
+      // If the node has children, create a sub-tree and handle toggling
+      if (hasChildren) {
+        nodeContent.addEventListener('click', (e) => {
+          e.stopPropagation();
+          li.classList.toggle('expanded');
+        });
+        const childrenUl = createTreeElement(node.children);
+        li.appendChild(childrenUl);
+      }
+
+      ul.appendChild(li);
+    }
+    return ul;
+  }
+
+  // Modified update function
+  function updateVariableList(treeData) {
+    // Flatten the tree to calculate stats (this part is assumed to exist)
+    const flatList = (nodes) =>
+      nodes.reduce((acc, node) => {
+        acc.push(node);
+        if (node.children) acc.push(...flatList(node.children));
+        return acc;
+      }, []);
+
+    currentVariables = flatList(treeData);
+
+    // Update stats (your existing logic)
     const stats = {
-      total: variables.length,
-      variable: variables.filter((v) => v.kind === 'variable').length,
-      parameter: variables.filter((v) => v.kind === 'parameter').length,
-      property: variables.filter((v) => v.kind === 'property').length,
+      total: currentVariables.length,
+      variable: currentVariables.filter((v) => v.kind === 'variable').length,
+      parameter: currentVariables.filter((v) => v.kind === 'parameter').length,
+      property: currentVariables.filter((v) => v.kind === 'property').length,
     };
-
     totalVarsEl.textContent = stats.total;
     varCountEl.textContent = stats.variable;
     paramCountEl.textContent = stats.parameter;
     propCountEl.textContent = stats.property;
 
-    // 변수 목록 렌더링
-    if (variables.length === 0) {
+    // Render the tree structure
+    if (treeData.length === 0) {
       variableList.innerHTML =
         '<div class="empty-state">분석된 변수가 없습니다.</div>';
       return;
     }
 
-    variableList.innerHTML = variables
-      .map(
-        (variable) => `
-      <div class="variable-item" data-variable='${JSON.stringify(variable)}'>
-        <div class="variable-header">
-          <span class="variable-name">${escapeHtml(variable.name)}</span>
-          <span class="variable-type">${variable.kind}</span>
-        </div>
-        <div class="variable-details">
-          <span class="variable-location">줄 ${variable.location.line}</span>
-          <span class="variable-scope">${escapeHtml(variable.scope)}</span>
-        </div>
-      </div>
-    `
-      )
-      .join('');
-
-    // 클릭 이벤트 추가
-    document.querySelectorAll('.variable-item').forEach((item) => {
-      item.addEventListener('click', () => {
-        const variable = JSON.parse(item.dataset.variable);
-        showSuggestions(variable);
-      });
-    });
+    const treeElement = createTreeElement(treeData);
+    variableList.innerHTML = ''; // Clear previous content
+    variableList.appendChild(treeElement);
   }
 
   // 추천 모달 표시
@@ -170,6 +217,8 @@
   // VSCode로부터 메시지 수신
   window.addEventListener('message', (event) => {
     const message = event.data;
+    console.log('잘 받았는지 확인');
+    console.log(message);
 
     switch (message.command) {
       case 'updateVariables':
