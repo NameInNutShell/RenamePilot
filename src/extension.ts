@@ -4,6 +4,7 @@ import * as fs from 'fs';
 import { ASTVariableAnalyzer } from './analyzer';
 import { handleVariableRenaming } from './lib/ui';
 import { SidebarProvider } from './SidebarProvider';
+import { buildTree } from './lib/treeBuilder';
 
 export function activate(context: vscode.ExtensionContext) {
   console.log('Congratulations, your extension "rename-pilot" is now active!');
@@ -31,7 +32,11 @@ export function activate(context: vscode.ExtensionContext) {
       editor.document.getText()
     );
     const variables = analyzer.collectVariableInfo();
-    sidebarProvider.updateVariables(variables);
+
+    const treeData = buildTree(variables); // 평면리스트 -> 트리 구조 데이터
+
+    console.log(treeData);
+    sidebarProvider.updateVariables(treeData);
   };
 
   // 3. 확장 프로그램이 켜졌을 때와 에디터가 바뀔 때 분석 실행
@@ -41,7 +46,7 @@ export function activate(context: vscode.ExtensionContext) {
       analyzeAndUpdate(editor);
     })
   );
-  
+
   // 4. 텍스트 변경 시에도 분석 실행 (디바운싱 적용)
   let timeout: NodeJS.Timeout | undefined = undefined;
   context.subscriptions.push(
@@ -54,7 +59,7 @@ export function activate(context: vscode.ExtensionContext) {
       }
     })
   );
-  
+
   // 5. 수동 새로고침 명령
   const refreshCommand = vscode.commands.registerCommand(
     'rename-pilot.refreshAnalysis',

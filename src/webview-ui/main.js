@@ -1,4 +1,5 @@
 // webview-ui/main.js - 모듈화된 메인 파일
+import * as VariableListModule from './modules/variableList';
 (function () {
   const vscode = acquireVsCodeApi();
   let currentVariables = [];
@@ -44,12 +45,12 @@
   // 변수명 변경 적용
   function applyRename(variable, newName) {
     console.log(`Applying rename: ${variable.name} -> ${newName}`);
-    
+
     // 로딩 상태 표시
     if (window.FeedbackModule) {
       window.FeedbackModule.showLoading();
     }
-    
+
     // VSCode로 변경 요청
     vscode.postMessage({
       command: 'renameVariable',
@@ -61,15 +62,15 @@
   // 변수 목록 업데이트
   function updateVariableList(variables) {
     currentVariables = variables;
-    
-    if (window.VariableListModule) {
-      window.VariableListModule.updateVariableList(variables, handleVariableClick);
-    }
+
+    VariableListModule.updateVariableList(variables, handleVariableClick);
   }
 
   // VSCode로부터 메시지 수신
   window.addEventListener('message', (event) => {
     const message = event.data;
+    console.log('잘 받았는지 확인');
+    console.log(message);
 
     switch (message.command) {
       case 'updateVariables':
@@ -79,8 +80,8 @@
       case 'showSuggestions':
         if (window.ModalModule) {
           window.ModalModule.displaySuggestions(
-            message.variableName, 
-            message.suggestions, 
+            message.variableName,
+            message.suggestions,
             applyRename
           );
         }
@@ -90,7 +91,7 @@
         // 로딩 상태 해제
         if (window.FeedbackModule) {
           window.FeedbackModule.hideLoading();
-          
+
           if (message.success) {
             window.FeedbackModule.showSuccess(
               `변수명이 "${message.oldName}"에서 "${message.newName}"으로 변경되었습니다.`
