@@ -4,7 +4,7 @@ import * as fs from 'fs';
 import { ASTVariableAnalyzer } from './analyzer';
 import { handleVariableRenaming } from './lib/ui';
 import { SidebarProvider } from './SidebarProvider';
-import { buildTree } from './lib/treeBuilder';
+import { VariableInfo } from './types';
 
 export function activate(context: vscode.ExtensionContext) {
   console.log('Congratulations, your extension "rename-pilot" is now active!');
@@ -19,24 +19,28 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   // 2. 분석 후 Webview를 업데이트하는 로직
-  const analyzeAndUpdate = (editor: vscode.TextEditor | undefined) => {
-    if (!editor) {
-      sidebarProvider.updateVariables([]);
-      console.log('파일 없음');
-      return;
+  const analyzeAndUpdate: (editor: vscode.TextEditor | undefined) => void = (
+    editor
+  ) => {
+    try {
+      console.log('here!!');
+      if (!editor) {
+        sidebarProvider.updateVariables([]);
+        console.log('파일 없음!');
+        return;
+      }
+      const analyzer = new ASTVariableAnalyzer();
+      // console.log(editor.document.fileName);
+      // console.log(editor.document.getText());
+      analyzer.createSourceFile(
+        editor.document.fileName,
+        editor.document.getText()
+      );
+      const variables: VariableInfo[] = analyzer.collectVariableInfo();
+      sidebarProvider.updateVariables(variables);
+    } catch (error: any) {
+      console.log(error);
     }
-    const analyzer = new ASTVariableAnalyzer();
-    console.log(editor.document.fileName);
-    analyzer.createSourceFile(
-      editor.document.fileName,
-      editor.document.getText()
-    );
-    const variables = analyzer.collectVariableInfo();
-
-    const treeData = buildTree(variables); // 평면리스트 -> 트리 구조 데이터
-
-    console.log(treeData);
-    sidebarProvider.updateVariables(treeData);
   };
 
   // 3. 확장 프로그램이 켜졌을 때와 에디터가 바뀔 때 분석 실행

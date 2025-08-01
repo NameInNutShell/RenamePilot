@@ -6,7 +6,7 @@
  * @param {string} name - 검사할 변수명
  * @returns {boolean} 유효성 여부
  */
-function isValidVariableName(name) {
+export function isValidVariableName(name: string): boolean {
   return /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(name);
 }
 
@@ -15,14 +15,14 @@ function isValidVariableName(name) {
  * @param {string} text - 이스케이프할 텍스트
  * @returns {string} 이스케이프된 텍스트
  */
-function escapeHtml(text) {
+export function escapeHtml(text: string): string {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
 }
 
-// 모듈 내보내기
-window.ValidationModule = {
-  isValidVariableName,
-  escapeHtml
-};
+// // 모듈 내보내기
+// window.ValidationModule = {
+//   isValidVariableName,
+//   escapeHtml
+// };

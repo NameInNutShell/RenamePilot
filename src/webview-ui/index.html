@@ -2,58 +2,111 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="stylesheet" href="${stylesUri}" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+    />
+    <link
+      rel="stylesheet"
+      href="${stylesUri}"
+    />
     <title>RenamePilot</title>
   </head>
   <body>
     <div class="container">
       <h1>RenamePilot 분석기</h1>
-      
+
       <div class="controls">
-        <button id="refresh-button" class="primary-button">
+        <button
+          id="refresh-button"
+          class="primary-button"
+        >
           <span class="icon">↻</span> 새로고침
         </button>
       </div>
-      
-      <div class="stats" id="stats">
+
+      <div
+        class="stats"
+        id="stats"
+      >
         <div class="stat-item">
           <span class="stat-label">전체 변수:</span>
-          <span class="stat-value" id="total-vars">0</span>
+          <span
+            class="stat-value"
+            id="total-vars"
+            >0</span
+          >
         </div>
         <div class="stat-item">
           <span class="stat-label">변수:</span>
-          <span class="stat-value" id="var-count">0</span>
+          <span
+            class="stat-value"
+            id="var-count"
+            >0</span
+          >
         </div>
         <div class="stat-item">
           <span class="stat-label">매개변수:</span>
-          <span class="stat-value" id="param-count">0</span>
+          <span
+            class="stat-value"
+            id="param-count"
+            >0</span
+          >
         </div>
         <div class="stat-item">
           <span class="stat-label">속성:</span>
-          <span class="stat-value" id="prop-count">0</span>
+          <span
+            class="stat-value"
+            id="prop-count"
+            >0</span
+          >
         </div>
       </div>
-      
+
       <div class="section">
         <h2>분석된 변수 목록</h2>
-        <div id="variable-list" class="variable-list">
+        <div
+          id="variable-list"
+          class="variable-list"
+        >
           <div class="empty-state">분석할 파일을 열어주세요.</div>
         </div>
       </div>
-      
-      <div id="suggestion-modal" class="modal hidden">
+
+      <div
+        id="suggestion-modal"
+        class="modal hidden"
+      >
         <div class="modal-content">
           <div class="modal-header">
             <h3>변수명 추천</h3>
-            <button class="close-button" id="close-modal">×</button>
+            <button
+              class="close-button"
+              id="close-modal"
+            >
+              ×
+            </button>
           </div>
           <div class="modal-body">
-            <p class="current-name">현재 이름: <span id="current-var-name"></span></p>
-            <div id="suggestions-list" class="suggestions-list"></div>
+            <p class="current-name">
+              현재 이름: <span id="current-var-name"></span>
+            </p>
+            <div
+              id="suggestions-list"
+              class="suggestions-list"
+            ></div>
             <div class="custom-input-container">
-              <input type="text" id="custom-name-input" placeholder="직접 입력..." />
-              <button id="apply-custom-name" class="apply-button">적용</button>
+              <input
+                type="text"
+                id="custom-name-input"
+                placeholder="직접 입력..."
+              />
+              <button
+                id="apply-custom-name"
+                class="apply-button"
+              >
+                적용
+              </button>
             </div>
           </div>
         </div>
@@ -61,44 +114,9 @@
     </div>
 
     <!-- 모듈 스크립트들 먼저 로드 -->
-    <script>
-      // 모듈 스크립트들의 경로를 동적으로 생성
-      const baseUri = '${scriptUri}'.replace('/main.js', '');
-      
-      // 모듈들을 순서대로 로드
-      const modules = [
-        'modules/validation.js',
-        'modules/feedback.js', 
-        'modules/variableList.js',
-        'modules/modal.js'
-      ];
-      
-      let loadedModules = 0;
-      
-      modules.forEach(modulePath => {
-        const script = document.createElement('script');
-        script.src = baseUri + '/' + modulePath;
-        script.onload = () => {
-          loadedModules++;
-          if (loadedModules === modules.length) {
-            // 모든 모듈이 로드되면 메인 스크립트 로드
-            const mainScript = document.createElement('script');
-            mainScript.src = '${scriptUri}';
-            document.head.appendChild(mainScript);
-          }
-        };
-        script.onerror = () => {
-          console.warn(`Failed to load module: ${modulePath}`);
-          loadedModules++;
-          if (loadedModules === modules.length) {
-            // 에러가 있어도 메인 스크립트는 로드
-            const mainScript = document.createElement('script');
-            mainScript.src = '${scriptUri}';
-            document.head.appendChild(mainScript);
-          }
-        };
-        document.head.appendChild(script);
-      });
-    </script>
+    <script
+      type="module"
+      src="${scriptUri}"
+    ></script>
   </body>
 </html>
