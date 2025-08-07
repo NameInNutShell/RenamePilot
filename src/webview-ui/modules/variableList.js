@@ -75,13 +75,13 @@ function createTreeElement(nodes, onVariableClick) {
 
     const nodeContent = document.createElement('span');
     const icon = getIconForKind(node.kind);
-    nodeContent.innerHTML = `${icon} ${window.ValidationModule.escapeHtml(
-      node.name
-    )} <small>(${node.kind})</small>`;
+    nodeContent.innerHTML = `${icon} ${escapeHtml(node.name)} <small>(${
+      node.kind
+    })</small>`;
     li.appendChild(nodeContent);
 
-    // 실제 변수인 경우에만 클릭 이벤트를 추가합니다.
-    if (['variable', 'parameter', 'property'].includes(node.kind)) {
+    // 실제 변수인 경우(자식이 없는 노드)에만 클릭 이벤트를 추가합니다.
+    if (!hasChildren) {
       li.dataset.variable = JSON.stringify(node);
       li.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -93,10 +93,11 @@ function createTreeElement(nodes, onVariableClick) {
     // 자식 노드가 있으면 하위 트리를 생성하고 토글 이벤트를 추가합니다.
     if (hasChildren) {
       nodeContent.addEventListener('click', (e) => {
-        e.stopPropagation();
+        e.stopPropagation(); // 자식/부모의 토글이 동시에 일어나는 것을 방지
         li.classList.toggle('expanded');
       });
-      li.appendChild(createTreeElement(node.children, onVariableClick));
+      const childrenUl = createTreeElement(node.children, onVariableClick);
+      li.appendChild(childrenUl);
     }
 
     ul.appendChild(li);
