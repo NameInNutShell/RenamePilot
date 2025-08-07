@@ -1,3 +1,4 @@
+// SidebarProvider.ts - 간소화된 버전
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import { generateVariableNameSuggestions } from './lib/suggestions';
@@ -19,82 +20,137 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
 
     webviewView.webview.options = {
       enableScripts: true,
-      localResourceRoots: [
-        vscode.Uri.joinPath(this._extensionUri, 'src', 'webview-ui'),
-      ],
+      localResourceRoots: [vscode.Uri.joinPath(this._extensionUri, 'src', 'webview-ui')],
     };
 
     webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
 
-    // 뷰가 생성되면 캐시된 변수 정보 전송
+    // 캐시된 변수 정보 전송
     this.updateVariables(this._lastVariables);
 
-    // Webview로부터 메시지 수신
+    // 메시지 처리
     webviewView.webview.onDidReceiveMessage(async (data) => {
-      switch (data.command) {
-        case 'getSuggestions':
-          // 변수에 대한 이름 추천 생성
-          const variable = data.variable;
-          const suggestions = generateVariableNameSuggestions(variable);
-          
-          // 추천된 이름들을 웹뷰로 전송
-          this._view?.webview.postMessage({
-            command: 'showSuggestions',
-            variableName: variable.name,
-            suggestions: suggestions
-          });
-          break;
-          
-        case 'renameVariable':
-          // 실제 변수명 변경 수행
-          await performVariableRename(data.variable, data.newName);
-          
-          // 변경 완료 메시지 전송
-          this._view?.webview.postMessage({
-            command: 'renameComplete',
-            oldName: data.variable.name,
-            newName: data.newName
-          });
-          break;
-          
-        case 'requestRefresh':
-          // 현재 에디터의 변수 정보 재분석 요청
-          vscode.commands.executeCommand('rename-pilot.refreshAnalysis');
-          break;
-      }
+      await this._handleMessage(data);
     });
   }
 
-  // Webview로 데이터 전송하는 함수
+  // 변수 정보 업데이트
   public updateVariables(variables: any[]) {
     this._lastVariables = variables;
+    this._sendMessage({
+      command: 'updateVariables',
+      variables: variables,
+    });
+  }
 
-    if (this._view) {
-      this._view.webview.postMessage({
-        command: 'updateVariables',
-        variables: variables,
+  // 외부에서 변수 추천 모달 표시 (extension.ts에서 호출)
+  public showVariableSuggestions(variable: any) {
+    this._sendMessage({
+      command: 'showVariableModal',
+      variable: variable,
+    });
+  }
+
+  // 메시지 처리 통합
+  private async _handleMessage(data: any) {
+    switch (data.command) {
+      case 'getSuggestions':
+        await this._handleGetSuggestions(data.variable);
+        break;
+        
+      case 'renameVariable':
+        await this._handleRenameVariable(data.variable, data.newName);
+        break;
+        
+      case 'requestRefresh':
+        vscode.commands.executeCommand('rename-pilot.refreshAnalysis');
+        break;
+    }
+  }
+
+  // 추천 생성 처리
+  private async _handleGetSuggestions(variable: any) {
+    try {
+      const suggestions = generateVariableNameSuggestions(variable);
+      this._sendMessage({
+        command: 'showSuggestions',
+        variableName: variable.name,
+        suggestions: suggestions
+      });
+    } catch (error) {
+      console.error('추천 생성 오류:', error);
+      this._sendMessage({
+        command: 'showSuggestions',
+        variableName: variable.name,
+        suggestions: []
       });
     }
   }
 
+  // 변수명 변경 처리
+  private async _handleRenameVariable(variable: any, newName: string) {
+    try {
+      console.log(`변수명 변경: "${variable.name}" -> "${newName}"`);
+      const success = await performVariableRename(variable, newName);
+      
+      this._sendMessage({
+        command: 'renameComplete',
+        oldName: variable.name,
+        newName: newName,
+        success: success,
+        error: success ? null : '변수명 변경에 실패했습니다.'
+      });
+
+      if (success) {
+        // 성공 시 잠시 후 자동 새로고침
+        setTimeout(() => {
+          vscode.commands.executeCommand('rename-pilot.refreshAnalysis');
+        }, 500);
+      }
+
+    } catch (error) {
+      console.error('변수명 변경 오류:', error);
+      this._sendMessage({
+        command: 'renameComplete',
+        oldName: variable.name,
+        newName: newName,
+        success: false,
+        error: error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.'
+      });
+    }
+  }
+
+  // 메시지 전송 헬퍼
+  private _sendMessage(message: any) {
+    if (this._view) {
+      this._view.webview.postMessage(message);
+    }
+  }
+
+  // HTML 생성
   private _getHtmlForWebview(webview: vscode.Webview): string {
-    const webviewUiPath = vscode.Uri.joinPath(
-      this._extensionUri,
-      'src',
-      'webview-ui'
-    );
-    const htmlPath = vscode.Uri.joinPath(webviewUiPath, 'index.html');
-    const stylesUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(webviewUiPath, 'styles.css')
-    );
-    const scriptUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(webviewUiPath, 'main.js')
-    );
+    try {
+      const webviewUiPath = vscode.Uri.joinPath(this._extensionUri, 'src', 'webview-ui');
+      const htmlPath = vscode.Uri.joinPath(webviewUiPath, 'index.html');
+      const stylesUri = webview.asWebviewUri(vscode.Uri.joinPath(webviewUiPath, 'styles.css'));
+      const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(webviewUiPath, 'main.js'));
 
-    let html = fs.readFileSync(htmlPath.fsPath, 'utf8');
-    html = html.replace(/\${stylesUri}/g, stylesUri.toString());
-    html = html.replace(/\${scriptUri}/g, scriptUri.toString());
+      let html = fs.readFileSync(htmlPath.fsPath, 'utf8');
+      html = html.replace(/\${stylesUri}/g, stylesUri.toString());
+      html = html.replace(/\${scriptUri}/g, scriptUri.toString());
 
-    return html;
+      return html;
+    } catch (error) {
+      console.error('HTML 로딩 오류:', error);
+      return `
+        <html>
+        <body>
+          <h1>RenamePilot</h1>
+          <p>웹뷰 로딩 중 오류가 발생했습니다.</p>
+          <p>오류: ${error}</p>
+        </body>
+        </html>
+      `;
+    }
   }
 }
