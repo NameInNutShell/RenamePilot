@@ -60,6 +60,45 @@
       </div>
     </div>
 
-    <script src="${scriptUri}"></script>
+    <!-- 모듈 스크립트들 먼저 로드 -->
+    <script>
+      // 모듈 스크립트들의 경로를 동적으로 생성
+      const baseUri = '${scriptUri}'.replace('/main.js', '');
+      
+      // 모듈들을 순서대로 로드
+      const modules = [
+        'modules/validation.js',
+        'modules/feedback.js', 
+        'modules/variableList.js',
+        'modules/modal.js'
+      ];
+      
+      let loadedModules = 0;
+      
+      modules.forEach(modulePath => {
+        const script = document.createElement('script');
+        script.src = baseUri + '/' + modulePath;
+        script.onload = () => {
+          loadedModules++;
+          if (loadedModules === modules.length) {
+            // 모든 모듈이 로드되면 메인 스크립트 로드
+            const mainScript = document.createElement('script');
+            mainScript.src = '${scriptUri}';
+            document.head.appendChild(mainScript);
+          }
+        };
+        script.onerror = () => {
+          console.warn(`Failed to load module: ${modulePath}`);
+          loadedModules++;
+          if (loadedModules === modules.length) {
+            // 에러가 있어도 메인 스크립트는 로드
+            const mainScript = document.createElement('script');
+            mainScript.src = '${scriptUri}';
+            document.head.appendChild(mainScript);
+          }
+        };
+        document.head.appendChild(script);
+      });
+    </script>
   </body>
 </html>

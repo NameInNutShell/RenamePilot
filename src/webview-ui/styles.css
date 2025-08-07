@@ -11,7 +11,9 @@ body {
   padding: 20px;
 }
 
-h1, h2, h3 {
+h1,
+h2,
+h3 {
   font-weight: 600;
   margin-top: 0;
 }
@@ -269,4 +271,52 @@ h2 {
 
 .apply-button:hover {
   background-color: var(--vscode-button-hoverBackground);
+}
+
+/* Tree View Styles */
+.variable-tree ul {
+  padding-left: 20px;
+  list-style-type: none;
+  margin: 4px 0 0 0;
+}
+
+.variable-tree li {
+  position: relative;
+}
+
+.tree-node > span {
+  cursor: pointer;
+  display: block;
+  padding: 2px 4px;
+  border-radius: 2px;
+}
+
+.tree-node > span:hover {
+  background-color: var(--vscode-list-hoverBackground);
+}
+
+/* 자식이 있는 노드 앞에 화살표 아이콘 추가 */
+.tree-node.has-children > span::before {
+  content: '▶';
+  display: inline-block;
+  width: 16px;
+  text-align: center;
+  margin-right: 4px;
+  font-size: 10px;
+  transition: transform 0.1s ease-in-out;
+}
+
+/* expanded 클래스가 추가되면 화살표를 회전 */
+.tree-node.has-children.expanded > span::before {
+  transform: rotate(90deg);
+}
+
+/* 평소에는 자식 목록(ul)을 숨김 */
+.tree-node.has-children > ul {
+  display: none;
+}
+
+/* expanded 클래스가 추가되면 자식 목록을 보여줌 */
+.tree-node.has-children.expanded > ul {
+  display: block;
 }
