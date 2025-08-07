@@ -1,3 +1,4 @@
+// analyzer.ts - 간소화된 통합 버전
 import * as path from 'path';
 import {
   Project,
@@ -8,7 +9,7 @@ import {
   PropertyDeclaration,
 } from 'ts-morph';
 
-interface VariableInfo {
+export interface VariableInfo {
   name: string;
   type: string;
   kind: 'variable' | 'parameter' | 'property';
@@ -18,94 +19,60 @@ interface VariableInfo {
     line: number;
     column: number;
   };
-  context: string; // 변수 주변 코드 컨텍스트
+  context: string;
 }
 
 /**
- * ts-morph를 이용한 AST 초기 설정 클래스
- * 변수 이름 분석 및 개선을 위한 기초 구조
+ * TSMorph를 활용한 TypeScript 변수 분석기
+ * VSCode 확장과 독립 실행 모두 지원
  */
 export class ASTVariableAnalyzer {
   private project: Project;
 
-  constructor() {
+  constructor(isVSCodeExtension: boolean = true) {
     try {
-      // VS Code 확장 프로그램 환경에서는 최소한의 설정으로 Project 생성
-      this.project = new Project({
-        useInMemoryFileSystem: true, // 메모리 파일 시스템 사용
-        skipAddingFilesFromTsConfig: true,
-        skipFileDependencyResolution: true,
-        skipLoadingLibFiles: true,
-      });
+      if (isVSCodeExtension) {
+        // VSCode 확장 환경용 설정
+        this.project = new Project({
+          useInMemoryFileSystem: true,
+          skipAddingFilesFromTsConfig: true,
+          skipFileDependencyResolution: true,
+          skipLoadingLibFiles: true,
+        });
+      } else {
+        // 독립 실행 환경용 설정
+        this.project = new Project({
+          tsConfigFilePath: './tsconfig.json',
+          skipAddingFilesFromTsConfig: true,
+          skipFileDependencyResolution: false,
+          skipLoadingLibFiles: false,
+        });
+      }
     } catch (error) {
       console.error('Project 초기화 실패, 기본 설정으로 재시도:', error);
-      // 최소한의 설정으로 재시도
       this.project = new Project();
     }
   }
 
-  /**
-   * 소스 파일들을 프로젝트에 추가
-   */
+  // 공통 메서드들
   addSourceFiles(pattern: string | string[]) {
     return this.project.addSourceFilesAtPaths(pattern);
   }
 
-  /**
-   * 특정 파일을 프로젝트에 추가
-   */
   addSourceFile(filePath: string) {
     return this.project.addSourceFileAtPath(filePath);
   }
 
-  /**
-   * 코드 문자열로부터 소스 파일 생성
-   */
   createSourceFile(fileName: string, code: string) {
     return this.project.createSourceFile(fileName, code);
   }
 
-  /**
-   * 프로젝트의 모든 소스 파일 가져오기
-   */
   getSourceFiles() {
     return this.project.getSourceFiles();
   }
 
   /**
-   * 특정 파일의 AST 구조 출력 (분석 연습용)
-   */
-  printASTStructure(filePath: string) {
-    const sourceFile = this.project.getSourceFile(filePath);
-    if (!sourceFile) {
-      console.error(`파일을 찾을 수 없습니다: ${filePath}`);
-      return;
-    }
-
-    console.log(`\n=== AST 구조 분석: ${filePath} ===`);
-
-    // 재귀적으로 AST 노드 출력
-    const printNode = (node: Node, depth: number = 0) => {
-      const indent = '  '.repeat(depth);
-      const kindName = SyntaxKind[node.getKind()];
-      const text = node.getText().slice(0, 50).replace(/\n/g, '\\n');
-
-      console.log(`${indent}${kindName}: "${text}"`);
-
-      node.forEachChild((child) => {
-        printNode(child, depth + 1);
-      });
-    };
-
-    printNode(sourceFile);
-  }
-
-  /**
-   * 변수 정보를 담는 인터페이스
-   */
-
-  /**
-   * 프로젝트에서 모든 변수 정보 수집
+   * 모든 변수 정보 수집
    */
   collectVariableInfo(): VariableInfo[] {
     const variables: VariableInfo[] = [];
@@ -113,167 +80,105 @@ export class ASTVariableAnalyzer {
     this.project.getSourceFiles().forEach((sourceFile) => {
       const filePath = sourceFile.getFilePath();
 
-      // 방법 1: 모든 VariableDeclaration 노드를 재귀적으로 찾기
-      sourceFile
-        .getDescendantsOfKind(SyntaxKind.VariableDeclaration)
-        .forEach((varDecl) => {
-          variables.push(
-            this.extractVariableInfo(varDecl, 'variable', filePath)
-          );
-        });
+      // 변수 선언
+      sourceFile.getDescendantsOfKind(SyntaxKind.VariableDeclaration).forEach((varDecl) => {
+        variables.push(this.extractVariableInfo(varDecl, 'variable', filePath));
+      });
 
-      // 방법 2: 함수 매개변수 수집 (기존과 동일)
+      // 함수 매개변수
       sourceFile.getDescendantsOfKind(SyntaxKind.Parameter).forEach((param) => {
         variables.push(this.extractParameterInfo(param, filePath));
       });
 
-      // 방법 3: 클래스 프로퍼티 수집 (기존과 동일)
-      sourceFile
-        .getDescendantsOfKind(SyntaxKind.PropertyDeclaration)
-        .forEach((prop) => {
-          variables.push(this.extractPropertyInfo(prop, filePath));
-        });
+      // 클래스 속성
+      sourceFile.getDescendantsOfKind(SyntaxKind.PropertyDeclaration).forEach((prop) => {
+        variables.push(this.extractPropertyInfo(prop, filePath));
+      });
 
-      // 방법 4: for...of, for...in 루프의 변수들도 수집
-      sourceFile
-        .getDescendantsOfKind(SyntaxKind.ForOfStatement)
-        .forEach((forOf) => {
-          const varDecl = forOf.getInitializer();
-          if (
-            varDecl &&
-            varDecl.getKind() === SyntaxKind.VariableDeclarationList
-          ) {
-            const varDeclList = varDecl.asKindOrThrow(
-              SyntaxKind.VariableDeclarationList
-            );
-            varDeclList.getDeclarations().forEach((decl) => {
-              variables.push(
-                this.extractVariableInfo(decl, 'variable', filePath)
-              );
-            });
-          }
-        });
+      // for 루프 변수들
+      this.collectLoopVariables(sourceFile, variables, filePath);
 
-      sourceFile
-        .getDescendantsOfKind(SyntaxKind.ForInStatement)
-        .forEach((forIn) => {
-          const varDecl = forIn.getInitializer();
-          if (
-            varDecl &&
-            varDecl.getKind() === SyntaxKind.VariableDeclarationList
-          ) {
-            const varDeclList = varDecl.asKindOrThrow(
-              SyntaxKind.VariableDeclarationList
-            );
-            varDeclList.getDeclarations().forEach((decl) => {
-              variables.push(
-                this.extractVariableInfo(decl, 'variable', filePath)
-              );
-            });
-          }
-        });
-
-      // 방법 5: catch 블록의 변수도 수집
-      sourceFile
-        .getDescendantsOfKind(SyntaxKind.CatchClause)
-        .forEach((catchClause) => {
-          const varDecl = catchClause.getVariableDeclaration();
-          if (varDecl) {
-            variables.push(
-              this.extractVariableInfo(varDecl, 'variable', filePath)
-            );
-          }
-        });
+      // catch 블록 변수
+      sourceFile.getDescendantsOfKind(SyntaxKind.CatchClause).forEach((catchClause) => {
+        const varDecl = catchClause.getVariableDeclaration();
+        if (varDecl) {
+          variables.push(this.extractVariableInfo(varDecl, 'variable', filePath));
+        }
+      });
     });
 
     return variables;
   }
 
-  /**
-   * 변수 선언에서 정보 추출
-   */
-  private extractVariableInfo(
-    varDecl: VariableDeclaration,
-    kind: 'variable',
-    filePath: string
-  ): VariableInfo {
-    const name = varDecl.getName();
-    const type = varDecl.getType().getText();
-    const pos = varDecl.getStartLineNumber();
-    const scope = this.getScopeInfo(varDecl);
-    const context = this.getContextInfo(varDecl);
+  private collectLoopVariables(sourceFile: any, variables: VariableInfo[], filePath: string) {
+    // for...of 루프
+    sourceFile.getDescendantsOfKind(SyntaxKind.ForOfStatement).forEach((forOf: any) => {
+      const varDecl = forOf.getInitializer();
+      if (varDecl && varDecl.getKind() === SyntaxKind.VariableDeclarationList) {
+        const varDeclList = varDecl.asKindOrThrow(SyntaxKind.VariableDeclarationList);
+        varDeclList.getDeclarations().forEach((decl: any) => {
+          variables.push(this.extractVariableInfo(decl, 'variable', filePath));
+        });
+      }
+    });
 
+    // for...in 루프
+    sourceFile.getDescendantsOfKind(SyntaxKind.ForInStatement).forEach((forIn: any) => {
+      const varDecl = forIn.getInitializer();
+      if (varDecl && varDecl.getKind() === SyntaxKind.VariableDeclarationList) {
+        const varDeclList = varDecl.asKindOrThrow(SyntaxKind.VariableDeclarationList);
+        varDeclList.getDeclarations().forEach((decl: any) => {
+          variables.push(this.extractVariableInfo(decl, 'variable', filePath));
+        });
+      }
+    });
+  }
+
+  private extractVariableInfo(varDecl: VariableDeclaration, kind: 'variable', filePath: string): VariableInfo {
     return {
-      name,
-      type,
+      name: varDecl.getName(),
+      type: varDecl.getType().getText(),
       kind,
-      scope,
+      scope: this.getScopeInfo(varDecl),
       location: {
         file: filePath,
-        line: pos,
+        line: varDecl.getStartLineNumber(),
         column: varDecl.getStartLinePos(),
       },
-      context,
+      context: this.getContextInfo(varDecl),
     };
   }
 
-  /**
-   * 매개변수에서 정보 추출
-   */
-  private extractParameterInfo(
-    param: ParameterDeclaration,
-    filePath: string
-  ): VariableInfo {
-    const name = param.getName();
-    const type = param.getType().getText();
-    const pos = param.getStartLineNumber();
-    const scope = this.getScopeInfo(param);
-    const context = this.getContextInfo(param);
-
+  private extractParameterInfo(param: ParameterDeclaration, filePath: string): VariableInfo {
     return {
-      name,
-      type,
+      name: param.getName(),
+      type: param.getType().getText(),
       kind: 'parameter',
-      scope,
+      scope: this.getScopeInfo(param),
       location: {
         file: filePath,
-        line: pos,
+        line: param.getStartLineNumber(),
         column: param.getStartLinePos(),
       },
-      context,
+      context: this.getContextInfo(param),
     };
   }
 
-  /**
-   * 프로퍼티에서 정보 추출
-   */
-  private extractPropertyInfo(
-    prop: PropertyDeclaration,
-    filePath: string
-  ): VariableInfo {
-    const name = prop.getName();
-    const type = prop.getType().getText();
-    const pos = prop.getStartLineNumber();
-    const scope = this.getScopeInfo(prop);
-    const context = this.getContextInfo(prop);
-
+  private extractPropertyInfo(prop: PropertyDeclaration, filePath: string): VariableInfo {
     return {
-      name,
-      type,
+      name: prop.getName(),
+      type: prop.getType().getText(),
       kind: 'property',
-      scope,
+      scope: this.getScopeInfo(prop),
       location: {
         file: filePath,
-        line: pos,
+        line: prop.getStartLineNumber(),
         column: prop.getStartLinePos(),
       },
-      context,
+      context: this.getContextInfo(prop),
     };
   }
 
-  /**
-   * 노드의 스코프 정보 가져오기
-   */
   private getScopeInfo(node: Node): string {
     const ancestors = node.getAncestors();
     const scopes: string[] = [];
@@ -281,49 +186,34 @@ export class ASTVariableAnalyzer {
     for (const ancestor of ancestors) {
       switch (ancestor.getKind()) {
         case SyntaxKind.FunctionDeclaration:
-          const funcDecl = ancestor.asKindOrThrow(
-            SyntaxKind.FunctionDeclaration
-          );
+          const funcDecl = ancestor.asKindOrThrow(SyntaxKind.FunctionDeclaration);
           scopes.push(`function:${funcDecl.getName() || 'anonymous'}`);
           break;
-
         case SyntaxKind.ArrowFunction:
           scopes.push('arrow-function');
           break;
-
         case SyntaxKind.FunctionExpression:
-          const funcExpr = ancestor.asKindOrThrow(
-            SyntaxKind.FunctionExpression
-          );
+          const funcExpr = ancestor.asKindOrThrow(SyntaxKind.FunctionExpression);
           scopes.push(`function-expr:${funcExpr.getName() || 'anonymous'}`);
           break;
-
         case SyntaxKind.ClassDeclaration:
           const classDecl = ancestor.asKindOrThrow(SyntaxKind.ClassDeclaration);
           scopes.push(`class:${classDecl.getName() || 'anonymous'}`);
           break;
-
         case SyntaxKind.MethodDeclaration:
-          const methodDecl = ancestor.asKindOrThrow(
-            SyntaxKind.MethodDeclaration
-          );
+          const methodDecl = ancestor.asKindOrThrow(SyntaxKind.MethodDeclaration);
           scopes.push(`method:${methodDecl.getName()}`);
           break;
-
         case SyntaxKind.ForStatement:
           scopes.push('for-loop');
           break;
-
         case SyntaxKind.ForOfStatement:
           scopes.push('for-of-loop');
           break;
-
         case SyntaxKind.ForInStatement:
           scopes.push('for-in-loop');
           break;
-
         case SyntaxKind.Block:
-          // 블록 스코프도 표시 (if, while 등)
           const blockParent = ancestor.getParent();
           if (blockParent) {
             const parentKind = blockParent.getKind();
@@ -336,7 +226,6 @@ export class ASTVariableAnalyzer {
             }
           }
           break;
-
         case SyntaxKind.CatchClause:
           scopes.push('catch-block');
           break;
@@ -346,23 +235,15 @@ export class ASTVariableAnalyzer {
     return scopes.reverse().join(' -> ') || 'global';
   }
 
-  /**
-   * 변수 주변 컨텍스트 정보 가져오기
-   */
   private getContextInfo(node: Node): string {
     const parent = node.getParent();
     if (!parent) return '';
 
-    // 부모 노드의 텍스트를 가져와서 컨텍스트로 사용
     const parentText = parent.getText();
-    return parentText.length > 200
-      ? parentText.slice(0, 200) + '...'
-      : parentText;
+    return parentText.length > 200 ? parentText.slice(0, 200) + '...' : parentText;
   }
 
-  /**
-   * 변수 정보를 JSON 형태로 출력
-   */
+  // 유틸리티 메서드들
   printVariableInfo(variables: VariableInfo[]) {
     console.log('\n=== 수집된 변수 정보 ===');
     variables.forEach((variable, index) => {
@@ -370,25 +251,18 @@ export class ASTVariableAnalyzer {
       console.log(`   타입: ${variable.type}`);
       console.log(`   종류: ${variable.kind}`);
       console.log(`   스코프: ${variable.scope}`);
-      console.log(
-        `   위치: ${variable.location.file}:${variable.location.line}`
-      );
+      console.log(`   위치: ${variable.location.file}:${variable.location.line}`);
       console.log(`   컨텍스트: ${variable.context.slice(0, 100)}...`);
     });
   }
 
-  /**
-   * 변수 이름 품질 분석을 위한 기초 메서드
-   */
   analyzeVariableNameQuality(variables: VariableInfo[]) {
     console.log('\n=== 변수 이름 품질 기초 분석 ===');
 
     const analysis = {
       shortNames: variables.filter((v) => v.name.length <= 2),
       genericNames: variables.filter((v) =>
-        ['data', 'item', 'temp', 'tmp', 'obj', 'result'].includes(
-          v.name.toLowerCase()
-        )
+        ['data', 'item', 'temp', 'tmp', 'obj', 'result'].includes(v.name.toLowerCase())
       ),
       abbreviations: variables.filter(
         (v) => /^[a-z]+[A-Z]/.test(v.name) && v.name.length <= 5
@@ -404,51 +278,26 @@ export class ASTVariableAnalyzer {
     return analysis;
   }
 
-  /**
-   * 프로젝트 저장
-   */
   async save() {
     await this.project.save();
   }
 
-  /**
-   * 리소스 정리
-   */
   dispose() {
-    // 필요한 경우 리소스 정리 로직 추가
+    // 필요한 경우 리소스 정리
   }
 }
 
-// 사용 예시
+// 독립 실행용 함수 (기존 호환성 유지)
 export async function initializeASTAnalyzer() {
   try {
-    // AST 분석기 초기화
-    const analyzer = new ASTVariableAnalyzer();
+    const analyzer = new ASTVariableAnalyzer(false); // 독립 실행 모드
 
-    // 예시: TypeScript 파일들을 프로젝트에 추가
+    // 예시 파일 추가
     analyzer.addSourceFiles('src/examplefiles/**/*.ts');
 
-    // 또는 특정 파일 추가
-    // analyzer.addSourceFile("./example.ts");
-
-    /*
-    // 또는 코드 문자열로 테스트 파일 생성
-    const testCode = `
-      
-    `;
-
-    //const testFile = analyzer.createSourceFile('test.ts', testCode);
-    */
-    // AST 구조 출력 (학습 목적)
-    analyzer.printASTStructure('test.ts');
-
-    // 변수 정보 수집
+    // 변수 정보 수집 및 분석
     const variables = analyzer.collectVariableInfo();
-
-    // 변수 정보 출력
     analyzer.printVariableInfo(variables);
-
-    // 변수 이름 품질 분석
     analyzer.analyzeVariableNameQuality(variables);
 
     return analyzer;
@@ -456,4 +305,15 @@ export async function initializeASTAnalyzer() {
     console.error('AST 분석기 초기화 실패:', error);
     throw error;
   }
+}
+
+// 메인 실행 (독립 실행 시)
+if (require.main === module) {
+  initializeASTAnalyzer()
+    .then((analyzer) => {
+      console.log('AST 분석기 초기화 완료');
+    })
+    .catch((error) => {
+      console.error('실행 실패:', error);
+    });
 }

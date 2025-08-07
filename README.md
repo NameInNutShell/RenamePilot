@@ -69,3 +69,10 @@ You can author your README using Visual Studio Code. Here are some useful editor
 * [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
 
 **Enjoy!**
+
+---
+
+** 초기 프로그램 설정
+1. npm install
+2. npm install --save-dev ts-morph
+3. analyzer.ts 오류나면 npm install ts-morph@13.0.3 로 버전 낮추기
