@@ -216,7 +216,8 @@ h2 {
   color: var(--vscode-textLink-foreground);
 }
 
-.suggestions-list {
+.suggestions-list,
+.ai-suggestions-list {
   margin-bottom: 16px;
 }
 
