@@ -74,8 +74,12 @@
     "@vscode/test-cli": "^0.0.10",
     "@vscode/test-electron": "^2.5.2",
     "eslint": "^9.25.1",
-    "ts-morph": "^13.0.3",
+    "ts-morph": "^26.0.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.1",
+    "openai": "^5.12.0"
   }
 }
