@@ -22,34 +22,38 @@
   // 모달 이벤트 설정
   function setupModalEvents() {
     if (window.ModalModule) {
-      window.ModalModule.setupModalEventListeners(applyRename);
+      window.ModalModule.setupModalEventListeners(
+        applyRename,
+        requestSuggestions
+      );
     }
   }
 
-  // VSCode로 추천 요청
-  function requestSuggestions(variable) {
+  // VSCode로 추천 요청 - type 추가
+  function requestSuggestions(variable, type) {
     vscode.postMessage({
       command: 'getSuggestions',
       variable: variable,
+      type: type,
     });
   }
 
   // 변수 클릭 핸들러
-  function handleVariableClick(variable) {
+  function handleVariableClick(variable, type) {
     if (window.ModalModule) {
-      window.ModalModule.showSuggestions(variable, requestSuggestions);
+      window.ModalModule.showSuggestions(variable, requestSuggestions, type);
     }
   }
 
   // 변수명 변경 적용
   function applyRename(variable, newName) {
     console.log(`Applying rename: ${variable.name} -> ${newName}`);
-    
+
     // 로딩 상태 표시
     if (window.FeedbackModule) {
       window.FeedbackModule.showLoading();
     }
-    
+
     // VSCode로 변경 요청
     vscode.postMessage({
       command: 'renameVariable',
@@ -61,15 +65,19 @@
   // 변수 목록 업데이트
   function updateVariableList(variables) {
     currentVariables = variables;
-    
+
     if (window.VariableListModule) {
-      window.VariableListModule.updateVariableList(variables, handleVariableClick);
+      window.VariableListModule.updateVariableList(
+        variables,
+        handleVariableClick
+      );
     }
   }
 
   // VSCode로부터 메시지 수신
   window.addEventListener('message', (event) => {
     const message = event.data;
+    console.log(message);
 
     switch (message.command) {
       case 'updateVariables':
@@ -79,9 +87,10 @@
       case 'showSuggestions':
         if (window.ModalModule) {
           window.ModalModule.displaySuggestions(
-            message.variableName, 
-            message.suggestions, 
-            applyRename
+            message.variableName,
+            message.suggestions,
+            applyRename,
+            message.type
           );
         }
         break;
@@ -90,7 +99,7 @@
         // 로딩 상태 해제
         if (window.FeedbackModule) {
           window.FeedbackModule.hideLoading();
-          
+
           if (message.success) {
             window.FeedbackModule.showSuccess(
               `변수명이 "${message.oldName}"에서 "${message.newName}"으로 변경되었습니다.`

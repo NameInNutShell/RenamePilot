@@ -136,6 +136,7 @@ function getIconForKind(kind) {
  * 이 모듈의 메인 진입 함수입니다.
  * @param {Array} rawData - VariableInfo[] 형태의 가공되지 않은 원본 데이터
  * @param {Function} onVariableClick - 변수 클릭 시 호출될 콜백 함수
+ * @Param {string} type - rule | ai
  */
 function updateVariableList(rawData, onVariableClick) {
   // 1. 원본 데이터를 트리 구조로 변환합니다.

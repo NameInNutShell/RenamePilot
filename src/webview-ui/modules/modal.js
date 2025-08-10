@@ -3,19 +3,23 @@
 
 let selectedVariable = null;
 
+const modal = document.getElementById('suggestion-modal');
+const currentVarNameEl = document.getElementById('current-var-name');
+const customNameInput = document.getElementById('custom-name-input');
+const suggestionsListEl = document.getElementById('suggestions-list');
+
+const aiSuggestionButton = document.getElementById('ai-suggestion-button');
+const aiSuggestionsListEl = document.getElementById('ai-suggestions-list');
+const closeModalBtn = document.getElementById('close-modal');
+
 /**
  * 추천 모달 표시
  * @param {Object} variable - 선택된 변수 정보
  * @param {Function} onGetSuggestions - 추천 요청 함수
  */
-function showSuggestions(variable, onGetSuggestions) {
+function showSuggestions(variable, onGetSuggestions, type) {
   selectedVariable = variable;
-  
-  const modal = document.getElementById('suggestion-modal');
-  const currentVarNameEl = document.getElementById('current-var-name');
-  const customNameInput = document.getElementById('custom-name-input');
-  const suggestionsListEl = document.getElementById('suggestions-list');
-  
+
   if (!modal || !currentVarNameEl || !customNameInput || !suggestionsListEl) {
     console.error('Modal elements not found');
     return;
@@ -23,7 +27,11 @@ function showSuggestions(variable, onGetSuggestions) {
 
   currentVarNameEl.textContent = variable.name;
   customNameInput.value = variable.name;
-  suggestionsListEl.innerHTML = '<div class="loading">추천 이름 생성 중...</div>';
+
+  // 목록 초기화
+  suggestionsListEl.innerHTML =
+    '<div class="loading">추천 이름 생성 중...</div>';
+  aiSuggestionsListEl.innerHTML = '';
   modal.classList.remove('hidden');
 
   // 기존 메시지들 제거
@@ -31,7 +39,7 @@ function showSuggestions(variable, onGetSuggestions) {
 
   // 추천 요청
   if (onGetSuggestions) {
-    onGetSuggestions(variable);
+    onGetSuggestions(variable, type);
   }
 }
 
@@ -41,23 +49,29 @@ function showSuggestions(variable, onGetSuggestions) {
  * @param {Array} suggestions - 추천 목록
  * @param {Function} onApplyRename - 변수명 변경 함수
  */
-function displaySuggestions(variableName, suggestions, onApplyRename) {
+function displaySuggestions(variableName, suggestions, onApplyRename, type) {
   if (!selectedVariable || selectedVariable.name !== variableName) {
     return;
   }
 
-  const suggestionsListEl = document.getElementById('suggestions-list');
-  if (!suggestionsListEl) return;
+  const targetList = type === 'ai' ? aiSuggestionsListEl : suggestionsListEl;
+
+  // const suggestionsListEl = document.getElementById('suggestions-list');
+  // if (!suggestionsListEl) return;
 
   if (suggestions.length === 0) {
-    suggestionsListEl.innerHTML = '<div class="empty-state">추천할 이름이 없습니다.</div>';
+    targetList.innerHTML = `<div class="empty-state">${
+      type === 'ai' ? 'AI 추천이 없습니다.' : '추천할 이름이 없습니다.'
+    }</div>`;
     return;
   }
 
-  suggestionsListEl.innerHTML = suggestions
+  targetList.innerHTML = suggestions
     .map(
       (suggestion) => `
-    <div class="suggestion-item" data-name="${window.ValidationModule.escapeHtml(suggestion)}">
+    <div class="suggestion-item" data-name="${window.ValidationModule.escapeHtml(
+      suggestion
+    )}">
       ${window.ValidationModule.escapeHtml(suggestion)}
     </div>
   `
@@ -65,7 +79,7 @@ function displaySuggestions(variableName, suggestions, onApplyRename) {
     .join('');
 
   // 클릭 이벤트 추가
-  document.querySelectorAll('.suggestion-item').forEach((item) => {
+  targetList.querySelectorAll('.suggestion-item').forEach((item) => {
     item.addEventListener('click', () => {
       const newName = item.dataset.name;
       if (onApplyRename && selectedVariable) {
@@ -79,14 +93,10 @@ function displaySuggestions(variableName, suggestions, onApplyRename) {
  * 모달 닫기
  */
 function closeModal() {
-  const modal = document.getElementById('suggestion-modal');
-  const customNameInput = document.getElementById('custom-name-input');
-  const suggestionsListEl = document.getElementById('suggestions-list');
-  
   if (modal) modal.classList.add('hidden');
   if (customNameInput) customNameInput.value = '';
   if (suggestionsListEl) suggestionsListEl.innerHTML = '';
-  
+
   selectedVariable = null;
   window.FeedbackModule.clearAllMessages();
 }
@@ -102,12 +112,14 @@ function getSelectedVariable() {
  * 모달 이벤트 리스너 설정
  * @param {Function} onApplyRename - 변수명 변경 함수
  */
-function setupModalEventListeners(onApplyRename) {
-  const modal = document.getElementById('suggestion-modal');
-  const closeModalBtn = document.getElementById('close-modal');
-  const customNameInput = document.getElementById('custom-name-input');
-  const applyCustomNameBtn = document.getElementById('apply-custom-name');
-
+function setupModalEventListeners(onApplyRename, onGetAiSuggestions) {
+  aiSuggestionButton.addEventListener('click', () => {
+    if (selectedVariable) {
+      aiSuggestionsListEl.innerHTML =
+        '<div class="loading">AI 추천 이름 생성 중...</div>';
+      onGetAiSuggestions(selectedVariable, 'ai');
+    }
+  });
   // 모달 닫기 버튼
   if (closeModalBtn) {
     closeModalBtn.addEventListener('click', closeModal);
@@ -161,5 +173,5 @@ window.ModalModule = {
   displaySuggestions,
   closeModal,
   getSelectedVariable,
-  setupModalEventListeners
+  setupModalEventListeners,
 };

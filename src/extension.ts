@@ -3,13 +3,21 @@ import * as vscode from 'vscode';
 import { ASTVariableAnalyzer } from './analyzer';
 import { SidebarProvider } from './SidebarProvider';
 
+import * as dotenv from 'dotenv';
+import * as path from 'path';
+
+dotenv.config({ path: path.resolve(__dirname, '..', '.env') });
+
 export function activate(context: vscode.ExtensionContext) {
   console.log('RenamePilot 확장 프로그램이 활성화되었습니다!');
 
   // 사이드바 프로바이더 등록
   const sidebarProvider = new SidebarProvider(context.extensionUri);
   context.subscriptions.push(
-    vscode.window.registerWebviewViewProvider(SidebarProvider.viewType, sidebarProvider)
+    vscode.window.registerWebviewViewProvider(
+      SidebarProvider.viewType,
+      sidebarProvider
+    )
   );
 
   // 변수 분석 및 업데이트 함수
@@ -21,7 +29,10 @@ export function activate(context: vscode.ExtensionContext) {
 
     try {
       const analyzer = new ASTVariableAnalyzer(true); // VSCode 확장 모드
-      analyzer.createSourceFile(editor.document.fileName, editor.document.getText());
+      analyzer.createSourceFile(
+        editor.document.fileName,
+        editor.document.getText()
+      );
       const variables = analyzer.collectVariableInfo();
       sidebarProvider.updateVariables(variables);
     } catch (error) {
@@ -70,7 +81,10 @@ export function activate(context: vscode.ExtensionContext) {
 
       try {
         const analyzer = new ASTVariableAnalyzer(true);
-        analyzer.createSourceFile(editor.document.fileName, editor.document.getText());
+        analyzer.createSourceFile(
+          editor.document.fileName,
+          editor.document.getText()
+        );
         const variables = analyzer.collectVariableInfo();
 
         if (variables.length === 0) {
@@ -94,7 +108,6 @@ export function activate(context: vscode.ExtensionContext) {
           // 사이드바를 통해 추천 모달 표시
           sidebarProvider.showVariableSuggestions(selected.variable);
         }
-
       } catch (error) {
         console.error('변수 분석 중 오류:', error);
         vscode.window.showErrorMessage(`분석 중 오류가 발생했습니다: ${error}`);
